@@ -2,7 +2,7 @@
 
 **Grupo:** Anderson, Breno e Francisco
 
-[![CI](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco/actions/workflows/ci.yml/badge.svg?branch=tp3)](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco/actions/workflows/ci.yml)
+[![CI](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco_tp2/actions/workflows/ci.yml/badge.svg?branch=tp3)](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco_tp2/actions/workflows/ci.yml)
 
 ## Objetivo do projeto
 
@@ -92,8 +92,8 @@ Requisito: **Python 3.12 ou superior**.
 
 ```bash
 # 1. clonar e entrar no repositório
-git clone https://github.com/Infnet-Performance-Tests/anderson_breno_francisco.git
-cd anderson_breno_francisco
+git clone https://github.com/Infnet-Performance-Tests/anderson_breno_francisco_tp2.git
+cd anderson_breno_francisco_tp2
 
 # 2. criar e ativar o ambiente virtual
 python -m venv .venv
@@ -204,6 +204,11 @@ qualquer branch) e em pull requests: faz o checkout, configura o Python 3.12, in
 `requirements.txt`, roda `ruff check .` e depois `pytest tests/ -v`. Se qualquer teste falhar,
 o pytest sai com código diferente de zero e o workflow termina com erro. As execuções ficam
 na aba **Actions** do repositório.
+
+**Evidência de execução bem-sucedida:** run
+[#40384632722](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco_tp2/actions/runs/40384632722)
+(push na branch `tp3`, 26/10/2026), com o job *Tests (pytest)* concluído em 56 s:
+`ruff check .` → `All checks passed!` e `pytest tests/ -v` → `47 passed`.
 
 ---
 
