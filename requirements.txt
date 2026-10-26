@@ -10,6 +10,8 @@ sqlmodel>=0.0.24,<1.0
 pandas>=2.3,<3.0
 matplotlib>=3.10,<4.0
 seaborn>=0.13,<1.0
+scipy>=1.14,<2.0
+scikit-learn>=1.6,<2.0
 jupyter>=1.1,<2.0
 
 # Testes e qualidade (opcional)

@@ -9,10 +9,6 @@ def get_user_by_username(session: Session, username: str) -> User | None:
     return session.exec(select(User).where(User.username == username)).first()
 
 
-def get_prediction(session: Session, prediction_id: int) -> Prediction | None:
-    return session.get(Prediction, prediction_id)
-
-
 def get_prediction_for_owner(
     session: Session, prediction_id: int, owner_id: int
 ) -> Prediction | None:

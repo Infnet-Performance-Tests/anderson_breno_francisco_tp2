@@ -1,26 +1,26 @@
-# Projeto de Bloco — TP1
+# Projeto de Bloco — Classificação de intenções com API segura
 
 **Grupo:** Anderson, Breno e Francisco
 
-Análise exploratória do *Customer Support Ticket Dataset* e estrutura base de uma API
-FastAPI com autenticação JWT, servindo de fundação para o sistema de atendimento ao cliente
-com IA que será construído ao longo do bloco.
-
----
+[![CI](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco/actions/workflows/ci.yml/badge.svg?branch=tp3)](https://github.com/Infnet-Performance-Tests/anderson_breno_francisco/actions/workflows/ci.yml)
 
 ## Objetivo do projeto
 
-Definir o domínio do sistema a partir de duas frentes:
+Construir um sistema de atendimento ao cliente que responda à pergunta:
 
-1. **EDA exploratória** — entender o dataset de tickets de atendimento, avaliar sua qualidade
-   e levantar hipóteses verificáveis sobre as intenções dos usuários.
-2. **API FastAPI autenticada** — estruturar de forma modular a API que servirá o futuro
-   modelo de classificação de intenção, já com autenticação JWT funcional e as fronteiras de
-   confiança mapeadas.
+> **Dado o texto de uma mensagem de atendimento ao cliente, qual é a intenção do usuário?**
 
-O modelo de machine learning **não** faz parte desta entrega: a rota `POST /predict` devolve
-uma intenção pré-determinada que simula a saída do modelo futuro, mantendo o contrato HTTP
-estável para a troca posterior.
+O projeto avança em duas frentes:
+
+1. **Análise e modelagem** do *Customer Support Ticket Dataset*: EDA completa (TP1/TP2),
+   regressão linear de diagnóstico e formalização do problema de classificação (TP3), e, a
+   seguir, o treino do classificador (TP4).
+2. **API FastAPI segura**, que vai servir o classificador: autenticação JWT, controle de
+   acesso por ownership (anti-BOLA), validação estrita de entrada, headers de segurança, CORS
+   com allowlist, rate limiting, testes automatizados no CI e auditoria com OWASP ZAP.
+
+O TP3 é o pivô entre as duas fases: consolida o que foi construído, documenta as limitações e
+planeja a fase preditiva e o teste adversarial ([`others/planejamento_tp3.md`](others/planejamento_tp3.md)).
 
 ---
 
@@ -28,58 +28,61 @@ estável para a troca posterior.
 
 ```text
 .
-├── README.md                    # este arquivo
-├── requirements.txt             # dependências de execução
-├── pyproject.toml               # configuração de pytest e ruff
-├── Makefile                     # atalhos (install, run, test, notebook, dfd)
-├── .env.example                 # modelo da variável JWT_SECRET_KEY
+├── README.md                     # este arquivo
+├── requirements.txt              # dependências (API, EDA/ML e testes)
+├── pyproject.toml                # configuração de pytest e ruff
+├── Makefile                      # atalhos: install, db, run, test, lint, notebook
+├── Dockerfile / docker-compose.yml
+├── .env.example                  # modelo das variáveis JWT_SECRET_KEY e ALLOWED_ORIGINS
+│
+├── .github/workflows/ci.yml      # CI: lint + pytest tests/ -v a cada push
 │
 ├── data/
-│   └── customer_support_tickets.csv    # dataset original do Kaggle, sem alterações
+│   └── customer_support_tickets.csv   # dataset original do Kaggle, sem alterações
 │
 ├── eda/
-│   ├── eda.ipynb                # EDA completa, com as saídas já executadas
-│   └── hipoteses.md             # hipóteses sobre as intenções dos usuários
+│   └── eda_tp3.ipynb             # EDA completa (TP1, TP2 e TP3), já executada
 │
-├── fastapi/                     # código-fonte da aplicação
-│   ├── main.py                  # ponto de entrada (uvicorn main:app)
-│   ├── config.py                # credencial do admin e parâmetros do JWT
-│   ├── routes/                  # definição dos endpoints
-│   │   ├── health.py            #   GET  /health
-│   │   ├── auth.py              #   POST /auth/token
-│   │   └── predict.py           #   POST /predict  (protegida)
-│   ├── models/                  # modelos Pydantic de entrada e saída
-│   │   ├── health.py
-│   │   ├── auth.py
-│   │   └── prediction.py
-│   ├── security/                # segurança e autenticação
-│   │   ├── jwt.py               #   geração e validação do token JWT
-│   │   └── dependencies.py      #   OAuth2PasswordBearer + dependência de admin
-│   ├── application/             # casos de uso (fronteira entre rotas e domínio)
-│   ├── domain/                  # conceitos de negócio, sem FastAPI nem Pydantic
-│   └── tests/                   # testes automatizados das três rotas
+├── fastapi/                      # código-fonte da aplicação
+│   ├── main.py                   # ponto de entrada (uvicorn main:app)
+│   ├── config.py                 # parâmetros do JWT, CORS e rate limit
+│   ├── database.py               # engine SQLModel e dependência de sessão
+│   ├── crud.py                   # todas as consultas (SQLModel, sem SQL raw)
+│   ├── database.db               # banco SQLite com usuários e predictions de exemplo
+│   ├── sqlite_database.py        # cria o schema e faz a população inicial (sqlite3)
+│   ├── sqlite_populate.py        # popula usuários e predictions (sqlite3, idempotente)
+│   ├── routes/                   # endpoints HTTP
+│   │   ├── health.py             #   GET  /health
+│   │   ├── auth.py               #   POST /auth/token        (rate limit 10/min)
+│   │   ├── predict.py            #   POST /predict           (protegida)
+│   │   ├── predictions.py        #   GET  /predictions[/{id}] (protegidas, ownership)
+│   │   ├── docs.py               #   GET  /docs              (Swagger com SRI + CSP)
+│   │   └── responses.py          #   respostas de erro documentadas no OpenAPI
+│   ├── models/                   # contratos Pydantic e tabelas SQLModel
+│   ├── security/                 # JWT, hash de senha, dependências, headers, rate limit
+│   ├── application/              # casos de uso (fronteira entre rotas e domínio)
+│   └── domain/                   # conceitos de negócio (enum das 5 intenções)
 │
-└── others/
-    ├── dfd.png                  # DFD da API com entradas, saídas e trust boundaries
-    ├── dfd-and-cia.md           # análise CIA por componente e ameaças priorizadas
-    └── generate_dfd.py          # script que gera o dfd.png
+├── tests/                        # suíte pytest + TestClient (47 testes)
+│
+├── zap/
+│   ├── scan_passivo_zap_TP3.md   # análise dos findings Medium/High do TP3
+│   ├── zap_tp3_docs_*.html|json|md|log   # scan passivo do /docs (antes e depois)
+│   ├── zap_tp3_api.html|json|md|log      # scan da API autenticada (final)
+│   ├── openapi_tp3.json          # especificação usada no scan
+│   └── tp2/                      # relatórios do TP2, preservados
+│
+├── others/
+│   ├── planejamento_tp3.md       # modelo candidato, CountVectorizer e alvo do pentest
+│   ├── hipoteses.md              # hipóteses sobre as intenções (TP1)
+│   ├── dfd.png / dfd-and-cia.md  # DFD, trust boundaries e análise CIA (TP1)
+│   └── generate_dfd.py
+│
+└── entregaveis/                  # PDFs entregues no Moodle
 ```
 
-### Por que a aplicação está organizada assim
-
-O fluxo é sempre o mesmo, em uma direção só:
-
-```text
-routes (HTTP)  ->  application (caso de uso)  ->  domain / security
-```
-
-- `routes` conhece HTTP e delega; não contém regra de negócio.
-- `application` é a fronteira pública da aplicação.
-- `domain` guarda conceitos de negócio puros, sem dependência de framework.
-- `models` contém os contratos HTTP em Pydantic.
-- `security` concentra OAuth2 e JWT.
-
-Não há repositório, banco de dados nem *event bus* porque esta entrega não precisa deles.
+O fluxo da aplicação vai sempre na mesma direção:
+`routes (HTTP) -> application (caso de uso) -> domain / security / crud`.
 
 ---
 
@@ -89,7 +92,7 @@ Requisito: **Python 3.12 ou superior**.
 
 ```bash
 # 1. clonar e entrar no repositório
-git clone <url-do-repositorio>
+git clone https://github.com/Infnet-Performance-Tests/anderson_breno_francisco.git
 cd anderson_breno_francisco
 
 # 2. criar e ativar o ambiente virtual
@@ -99,189 +102,205 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 # 3. instalar as dependências
 python -m pip install -r requirements.txt
 
-# 4. definir a chave de assinatura do JWT
-cp .env.example .env             # e substituir o valor por um segredo aleatório
+# 4. configurar as variáveis de ambiente
+cp .env.example .env             # troque JWT_SECRET_KEY por: openssl rand -hex 32
 ```
-
-O `requirements.txt` cobre as três frentes: API, EDA e testes.
 
 ---
 
-## Execução
+## Banco de dados
 
-### API
+O `fastapi/database.db` já vem criado e populado. Para recriá-lo ou populá-lo:
 
-O comando exigido pelo enunciado é executado **de dentro do diretório `fastapi/`**, onde
-está o `main.py`:
+```bash
+cd fastapi
+python sqlite_database.py --reset   # apaga e recria o schema + população inicial
+python sqlite_database.py           # cria o schema e popula só se estiver vazio
+python sqlite_populate.py           # (re)popula: insere o que faltar, sem duplicar
+```
+
+Tabelas: `users` (senha em hash PBKDF2-SHA256) e `predictions` (com `owner_id`). Os scripts
+usam `sqlite3` puro; a API consulta o banco apenas via SQLModel.
+
+| Usuário | Senha | Predictions de exemplo |
+| --- | --- | --- |
+| `alice` | `alice123` | 2 (`refund_request`, `billing_inquiry`) |
+| `bob` | `bob123` | 2 (`technical_issue`, `cancellation_request`) |
+| `admin` | `admin123` | 1 (`product_inquiry`) |
+
+São credenciais acadêmicas, presentes apenas para demonstração e testes.
+
+---
+
+## Execução da API
+
+De dentro do diretório `fastapi/`:
 
 ```bash
 cd fastapi
 uvicorn main:app --reload
 ```
 
-A API sobe em `http://127.0.0.1:8000` e a documentação interativa fica em
-`http://127.0.0.1:8000/docs`.
+- API: `http://127.0.0.1:8000`
+- **Documentação interativa: `http://127.0.0.1:8000/docs`.** Use o botão **Authorize** com um
+  dos usuários acima para testar as rotas protegidas.
+- Especificação OpenAPI: `http://127.0.0.1:8000/openapi.json`
 
-> Defina `JWT_SECRET_KEY` no ambiente antes de subir. Sem ela, a aplicação usa um valor
-> padrão explicitamente marcado como de desenvolvimento.
+Com Docker: `docker compose up --build`.
 
-### Notebook da EDA
-
-```bash
-jupyter lab eda/eda.ipynb
-```
-
-O notebook já está **executado e com todas as saídas salvas** — gráficos e tabelas são
-visíveis sem precisar rodar nada. Ele baixa o dataset via `kagglehub` na primeira execução.
-As hipóteses derivadas da análise estão em `eda/hipoteses.md`.
-
-### Testes
-
-```bash
-pytest            # 6 testes cobrindo as três rotas e a proteção do /predict
-ruff check .      # análise estática
-```
-
-### Regerar o DFD
-
-```bash
-python others/generate_dfd.py
-```
-
----
-
-## Endpoints
+### Endpoints
 
 | Método | Rota | Autenticação | Descrição |
 | --- | --- | --- | --- |
 | `GET` | `/health` | Não | Verifica se a API está ativa. |
-| `POST` | `/auth/token` | Não | Autentica o admin e devolve um JWT válido por 30 minutos. |
-| `POST` | `/predict` | **Sim (Bearer)** | Recebe um texto e devolve uma intenção simulada. |
-
-### Credencial
-
-| Campo | Valor |
-| --- | --- |
-| usuário | `admin` |
-| senha | `admin123` |
-
-A credencial fica no código (`fastapi/config.py`) porque o enunciado exige. É uma exposição
-conhecida e documentada: em produção ela migraria para um provedor de identidade com senha
-em *hash*. A chave de assinatura do JWT, essa sim, já é injetada por variável de ambiente.
-
-### Exemplos
+| `POST` | `/auth/token` | Não (rate limit) | Recebe `username`/`password` (form) e devolve um JWT válido por 30 min. |
+| `POST` | `/predict` | **Bearer** | Classifica o texto e grava a prediction para o usuário autenticado. |
+| `GET` | `/predictions` | **Bearer** | Lista apenas as predictions do usuário autenticado. |
+| `GET` | `/predictions/{id}` | **Bearer** | Devolve a prediction se for do usuário; caso contrário, `404`. |
+| `GET` | `/docs` | Não | Swagger UI. |
 
 ```bash
-# 1. saúde da API
-curl http://127.0.0.1:8000/health
-# {"status":"ok"}
+TOKEN=$(curl -s -X POST http://127.0.0.1:8000/auth/token \
+  -d "username=alice&password=alice123" | python -c "import sys,json;print(json.load(sys.stdin)['access_token'])")
 
-# 2. obter o token
-curl -X POST http://127.0.0.1:8000/auth/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "username=admin&password=admin123"
-# {"access_token":"eyJhbGciOiJIUzI1NiIs...","token_type":"bearer"}
+curl -X POST http://127.0.0.1:8000/predict -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{"text":"I was charged twice"}'
+# {"id":6,"intent":"product_inquiry","confidence":1.0,"model_version":"stub-v0"}
 
-# 3. usar o token na rota protegida
-curl -X POST http://127.0.0.1:8000/predict \
-  -H "Authorization: Bearer SEU_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"text":"I need help with a refund"}'
-# {"intent":"general_inquiry","confidence":1.0,"model_version":"stub-v0"}
-
-# 4. sem token, a rota protegida recusa
-curl -i -X POST http://127.0.0.1:8000/predict \
-  -H "Content-Type: application/json" -d '{"text":"teste"}'
-# HTTP/1.1 401 Unauthorized
+curl http://127.0.0.1:8000/predictions/3 -H "Authorization: Bearer $TOKEN"
+# {"detail":"Prediction not found"}   <- a prediction 3 é do bob
 ```
+
+A rota `/predict` ainda devolve uma intenção fixa (`stub-v0`). O classificador entra no TP4,
+sem mudar o contrato HTTP.
 
 ---
 
-## Dataset
+## Testes
 
-### Fonte
+```bash
+pytest tests/ -v
+```
 
-| Item | Valor |
+São **47 testes**, todos usando o app real com `TestClient` e um banco SQLite temporário (o
+`database.db` versionado não é alterado):
+
+| Arquivo | Controle verificado |
 | --- | --- |
-| Nome | Customer Support Ticket Dataset |
-| Publicador no Kaggle | `suraj520` |
-| URL | https://www.kaggle.com/datasets/suraj520/customer-support-ticket-dataset/data |
-| Arquivo | `customer_support_tickets.csv` |
-| Licença declarada | CC0 — domínio público |
-| Cópia no repositório | `data/customer_support_tickets.csv`, preservada sem alterações |
+| `test_autenticacao.py` | Credenciais válidas geram JWT do próprio usuário; senha errada e usuário inexistente recebem o mesmo `401` genérico; tokens forjados, expirados ou de usuário inexistente são recusados |
+| `test_acesso_outro_usuario.py` | **BOLA**: um usuário não lê nem lista predictions de outro (`404`, com a mesma resposta de um ID inexistente) |
+| `test_campo_extra.py` | **Validação de entrada**: campos extras (`extra="forbid"`), texto vazio ou longo demais, tipo errado, JSON malformado e IDs inválidos devolvem `422` |
+| `test_rate_limit.py` | **Rate limiting**: a 11ª requisição em 1 minuto a `/auth/token` recebe `429`, mesmo com a senha certa; as outras rotas não são afetadas |
+| `test_sem_token.py` | **Rota protegida**: `/predict`, `/predictions` e `/predictions/{id}` recusam requisição sem token, com token inválido ou com esquema diferente de Bearer |
+| `test_headers_cors.py` | Headers HSTS, CSP, X-Frame-Options e X-Content-Type-Options; CORS só para origens da allowlist |
+| `test_health_docs.py` | `/health`, `/docs` com CSP e SRI (regressão dos findings do ZAP) e OpenAPI documentando segurança e respostas |
 
-A publicação descreve tickets de suporte ao cliente sobre produtos de tecnologia. Ela **não
-informa a empresa de origem nem o processo de coleta** — a proveniência se encerra na
-publicação do Kaggle.
+Análise estática: `ruff check .`
 
-### Principais características
+### Integração contínua
 
-**8.469 registros × 17 colunas**, com granularidade de **um ticket** por linha — não um
-cliente e não uma conversa completa.
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda **a cada push** (em
+qualquer branch) e em pull requests: faz o checkout, configura o Python 3.12, instala o
+`requirements.txt`, roda `ruff check .` e depois `pytest tests/ -v`. Se qualquer teste falhar,
+o pytest sai com código diferente de zero e o workflow termina com erro. As execuções ficam
+na aba **Actions** do repositório.
 
-| Grupo | Variáveis |
-| --- | --- |
-| Identificação | `Ticket ID` |
-| Dados do cliente | `Customer Name`, `Customer Email`, `Customer Age`, `Customer Gender` |
-| Produto e compra | `Product Purchased`, `Date of Purchase` |
-| Conteúdo / intenção | `Ticket Type`, `Ticket Subject`, `Ticket Description` |
-| Operação do atendimento | `Ticket Status`, `Resolution`, `Ticket Priority`, `Ticket Channel` |
-| Tempos e avaliação | `First Response Time`, `Time to Resolution`, `Customer Satisfaction Rating` |
+---
 
-Dois pontos condicionam o tratamento dos dados:
+## Notebook (EDA, regressão e formalização)
 
-- Os campos ligados ao encerramento (`Resolution`, `Time to Resolution`,
-  `Customer Satisfaction Rating`) podem estar ausentes em tickets ainda não encerrados. A
-  ausência precisa ser lida junto de `Ticket Status`, e não tratada automaticamente como erro.
-- `Customer Name` e `Customer Email` são **dados pessoais**. Mesmo em um conjunto público,
-  não devem aparecer em logs, gráficos, respostas da API ou exemplos de documentação — o que
-  se reflete nos controles descritos em [Segurança](#segurança).
+```bash
+jupyter lab eda/eda_tp3.ipynb
+```
 
-### Motivo da escolha
+O notebook já está executado, com todas as saídas salvas, e lê o CSV de `data/`:
 
-O conjunto foi escolhido porque atende, ao mesmo tempo, aos três eixos do bloco:
+- **1.1–1.8** — EDA completa (TP1/TP2): qualidade, limpeza, análises uni e multivariada,
+  testes de hipótese (Mann-Whitney), outliers e conclusões.
+- **2** — Regressão linear (TP3): alvo = quantidade de palavras da descrição; R², RMSE,
+  Residual Plot, Q-Q Plot, limitações e por que ela não representa o problema.
+- **3** — Formalização da classificação (TP3): X = `Ticket Description`, y = `Ticket Type`
+  (5 classes balanceadas), justificativa de classificação vs. regressão e verificação de
+  viabilidade.
 
-- **Texto livre do cliente** (`Ticket Description`), insumo direto da classificação de
-  intenção que será construída nas etapas seguintes.
-- **Categorias de atendimento** (`Ticket Type`, `Ticket Subject`) que servem como referência
-  inicial de rótulo, sem exigir anotação manual.
-- **Variáveis operacionais e temporais** suficientes para análise estatística e para a
-  formulação de hipóteses sobre as intenções dos usuários.
-- **Cenários de segurança realistas** para a etapa de ataque: dados pessoais no conjunto,
-  entrada textual não confiável chegando pela API e inferência acessível apenas mediante
-  autenticação.
-
-### Análise exploratória
-
-A EDA completa está em **[`eda/eda.ipynb`](eda/eda.ipynb)**, já executada e com as saídas
-salvas, cobrindo os cinco passos pedidos: compreensão do problema, inspeção inicial,
-verificação da qualidade dos dados, limpeza e preparação, e análise univariada.
-
-As **3 hipóteses sobre as intenções dos usuários**, derivadas da análise univariada, estão em
-**[`eda/hipoteses.md`](eda/hipoteses.md)**: necessidade de informação sobre produtos,
-descontinuidade no atendimento e atrito no processo de decisão de compra.
+> **Achado importante:** neste dataset sintético, o texto não carrega sinal sobre a intenção
+> (CountVectorizer + Regressão Logística ≈ classificador aleatório, macro-F1 ≈ 0,19). As
+> alternativas estão em [`others/planejamento_tp3.md`](others/planejamento_tp3.md).
 
 ---
 
 ## Segurança
 
-O DFD da API está em **[`others/dfd.png`](others/dfd.png)** e a análise da tríade CIA por
-componente, junto com as ameaças priorizadas, em
-**[`others/dfd-and-cia.md`](others/dfd-and-cia.md)**.
+### Controles implementados
 
-Controles já implementados nesta entrega:
+| Controle | Onde |
+| --- | --- |
+| JWT HS256 com `sub`, `iat` e `exp` (30 min); só o algoritmo configurado é aceito | `security/jwt.py` |
+| Usuários no banco com senha em hash PBKDF2-SHA256 (310 mil iterações) | `security/passwords.py`, `sqlite_populate.py` |
+| Login sem enumeração de usuários (mesmo `401` e verificação de hash mesmo sem usuário) | `application/auth_facade.py` |
+| Token só vale para usuário existente e ativo | `security/dependencies.py` |
+| Ownership na própria consulta (anti-BOLA) | `crud.get_prediction_for_owner`, `routes/predictions.py` |
+| `extra="forbid"` em todo body de entrada | `models/requests.py` |
+| Rate limit de 10 req/min por IP no login (SlowAPI) | `routes/auth.py`, `security/rate_limit.py` |
+| HSTS, CSP, X-Frame-Options, X-Content-Type-Options, COOP/CORP, `Cache-Control: no-store` | `security/headers.py` |
+| CORS com allowlist explícita (`ALLOWED_ORIGINS`, sem `*`) | `main.py`, `config.py` |
+| `/docs` com Swagger em versão fixa, SRI e CSP sem `unsafe-inline` | `routes/docs.py`, `security/headers.py` |
 
-- `/predict` protegida por `OAuth2PasswordBearer` e JWT válido.
-- Token com `sub`, `iat` e `exp` (30 minutos), aceitando apenas o algoritmo configurado.
-- Comparação de credenciais em tempo constante (`hmac.compare_digest`).
-- Resposta `401` genérica, que não revela qual campo falhou.
-- Validação estrita de entrada e saída com Pydantic, com limite de 5.000 caracteres no texto.
-- A API não ecoa nem registra o texto do ticket, que pode conter dados pessoais.
-- Chave de assinatura fora do código, via `JWT_SECRET_KEY`.
+**Por que 10 requisições/minuto no login:** é uma tentativa a cada 6 segundos. Um usuário que
+erra a senha não é afetado, mas um ataque de força bruta sobre 1 milhão de senhas levaria
+cerca de 69 dias a partir de um mesmo IP.
+
+### Alterações na API feitas no TP3
+
+Para que os controles exigidos pudessem ser testados de ponta a ponta, a API foi alterada:
+
+1. **Login passou a usar o banco.** Antes, `/auth/token` só aceitava o `admin` fixo em
+   `config.py`, e os usuários do banco (TP2) não conseguiam autenticar. A senha em código foi
+   removida.
+2. **Rotas de ownership criadas:** `GET /predictions` e `GET /predictions/{id}`. No TP2 a
+   consulta com ownership existia em `crud.py`, mas nenhuma rota a expunha, e os testes HTTP
+   de BOLA eram pulados.
+3. **`/predict` agora grava a prediction** com `owner_id` do usuário autenticado e devolve o
+   `id` criado.
+4. **Enum de intenções alinhado às 5 classes do dataset** (`domain/prediction.py`). O stub
+   responde `product_inquiry`, e o seed do banco usa essas classes.
+5. **Correções dos findings Medium do ZAP** em `/docs` (ver abaixo) e desligamento do
+   `/redoc`.
+6. **Testes reunidos em `tests/`** (antes divididos entre `tests/` e `fastapi/tests/`).
+
+### Auditoria OWASP ZAP
+
+A auditoria final está documentada em
+**[`zap/scan_passivo_zap_TP3.md`](zap/scan_passivo_zap_TP3.md)**. Foram encontrados 2 findings
+**Medium**, ambos em `/docs`: *CSP Header Not Set* e *Sub Resource Integrity Attribute
+Missing*. Os dois foram corrigidos e validados por um novo scan. Resultado final: **0 High,
+0 Medium e 0 Low**. Os relatórios exportados estão em `zap/`.
+
+O DFD e a análise CIA do TP1 estão em [`others/dfd.png`](others/dfd.png) e
+[`others/dfd-and-cia.md`](others/dfd-and-cia.md).
+
+---
+
+## Dataset
+
+| Item | Valor |
+| --- | --- |
+| Nome | Customer Support Ticket Dataset |
+| Publicador | `suraj520` (Kaggle) |
+| URL | https://www.kaggle.com/datasets/suraj520/customer-support-ticket-dataset/data |
+| Licença | CC0 — domínio público |
+| Cópia local | `data/customer_support_tickets.csv`, sem alterações |
+| Tamanho | 8.469 tickets × 17 colunas, um ticket por linha |
+
+`Customer Name` e `Customer Email` são dados pessoais. Não aparecem em gráficos, logs,
+respostas da API nem exemplos.
 
 ---
 
 ## Referências
 
 - [Customer Support Ticket Dataset (Kaggle)](https://www.kaggle.com/datasets/suraj520/customer-support-ticket-dataset/data)
-- [FastAPI — OAuth2 com JWT](https://fastapi.tiangolo.com/tutorial/security/oauth2-jwt/)
+- [FastAPI — Security](https://fastapi.tiangolo.com/tutorial/security/)
+- [OWASP API Security Top 10](https://owasp.org/API-Security/)
+- [OWASP ZAP — Docker scans](https://www.zaproxy.org/docs/docker/)
+- [scikit-learn — Working with text data](https://scikit-learn.org/stable/tutorial/text_analytics/working_with_text_data.html)

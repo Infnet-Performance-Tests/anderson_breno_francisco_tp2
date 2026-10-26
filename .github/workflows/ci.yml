@@ -1,5 +1,6 @@
 name: CI
 
+# Executa a suíte de testes a cada push (em qualquer branch) e em pull requests.
 on:
   push:
   pull_request:
@@ -12,18 +13,28 @@ jobs:
     name: Tests (pytest)
     runs-on: ubuntu-latest
     env:
-      JWT_SECRET_KEY: test-secret-key-123
+      JWT_SECRET_KEY: ci-only-secret-key-not-used-anywhere-else
       ALLOWED_ORIGINS: http://localhost:3000
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.txt
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      # O pytest devolve código de saída diferente de zero se qualquer teste falhar,
+      # o que encerra o job (e o workflow) com erro.
       - name: Run tests
-        run: pytest
+        run: pytest tests/ -v

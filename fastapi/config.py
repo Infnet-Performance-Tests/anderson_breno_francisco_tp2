@@ -5,12 +5,10 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class Settings:
     app_name: str = "Secure Support Agent Lab"
-    app_version: str = "0.1.0"
+    app_version: str = "0.3.0"
 
-    # Academic requirement: the single admin credential is kept in code.
-    # Replace this mechanism before any real deployment.
-    admin_username: str = "admin"
-    admin_password: str = "admin123"
+    # TP3: as credenciais deixaram de ficar em código. Os usuários vivem na tabela
+    # `users` do database.db, com senha em hash PBKDF2 (security/passwords.py).
 
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30

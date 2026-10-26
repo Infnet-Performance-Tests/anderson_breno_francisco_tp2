@@ -1,10 +1,9 @@
-"""Fixtures dos testes da raiz (tests/).
+"""Fixtures da suíte de testes (pytest tests/ -v).
 
-- Usam o app REAL (fastapi/main.py) e um banco TEMPORÁRIO criado por sqlite_database.init_db(),
-  então o fastapi/database.db versionado nunca é alterado.
-- Tokens são session-scoped: o /auth/token terá rate limit de 10 req/min (SlowAPI).
-- Os testes HTTP de ownership só rodam quando a rota GET /predictions/{prediction_id} existir
-  e o login de alice/bob usar o banco (parte de autenticação/ownership do grupo).
+- Usam o app REAL (fastapi/main.py) com TestClient e um banco TEMPORÁRIO criado por
+  sqlite_database.init_db(), então o fastapi/database.db versionado nunca é alterado.
+- O rate limiter do SlowAPI guarda contadores em memória: ele é zerado antes de cada teste
+  e antes de cada login de fixture, para que um teste não esgote o limite do seguinte.
 """
 
 import sys
@@ -20,8 +19,13 @@ from sqlmodel import Session, create_engine  # noqa: E402
 import sqlite_database  # noqa: E402
 from database import get_session  # noqa: E402
 from main import app  # noqa: E402
+from security.rate_limit import limiter  # noqa: E402
 
-OWNERSHIP_ROUTE = "/predictions/{prediction_id}"
+CREDENTIALS = {
+    "admin": "admin123",
+    "alice": "alice123",
+    "bob": "bob123",
+}
 
 
 @pytest.fixture(scope="session")
@@ -52,34 +56,32 @@ def client(db_file):
     app.dependency_overrides.clear()
 
 
-def _login(client, username, password):
-    resp = client.post("/auth/token", data={"username": username, "password": password})
-    if resp.status_code != 200:
-        return None
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    limiter.reset()
+
+
+def login(client, username, password):
+    return client.post("/auth/token", data={"username": username, "password": password})
+
+
+def _bearer(client, username):
+    limiter.reset()
+    resp = login(client, username, CREDENTIALS[username])
+    assert resp.status_code == 200, f"login de {username} falhou: {resp.text}"
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 
 @pytest.fixture(scope="session")
 def admin_headers(client):
-    headers = _login(client, "admin", "admin123")
-    assert headers, "login do admin falhou"
-    return headers
-
-
-def _user_headers(client, username, password):
-    if OWNERSHIP_ROUTE not in app.openapi()["paths"]:
-        pytest.skip(f"rota GET {OWNERSHIP_ROUTE} ainda não existe no app")
-    headers = _login(client, username, password)
-    if headers is None:
-        pytest.skip(f"login de {username} ainda não usa o banco de usuários")
-    return headers
+    return _bearer(client, "admin")
 
 
 @pytest.fixture(scope="session")
 def alice_headers(client):
-    return _user_headers(client, "alice", "alice123")
+    return _bearer(client, "alice")
 
 
 @pytest.fixture(scope="session")
 def bob_headers(client):
-    return _user_headers(client, "bob", "bob123")
+    return _bearer(client, "bob")

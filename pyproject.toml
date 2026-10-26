@@ -3,7 +3,7 @@
 # Este arquivo concentra apenas a configuração das ferramentas de qualidade.
 
 [tool.pytest.ini_options]
-testpaths = ["fastapi/tests", "tests"]
+testpaths = ["tests"]
 addopts = "-q"
 
 [tool.ruff]
@@ -21,9 +21,14 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 known-first-party = [
     "application",
     "config",
+    "conftest",
+    "crud",
+    "database",
     "domain",
     "main",
     "models",
     "routes",
     "security",
+    "sqlite_database",
+    "sqlite_populate",
 ]
